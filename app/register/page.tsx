@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast, Toaster } from 'react-hot-toast';
-import { Store, Mail, Lock, Link } from 'lucide-react';
+import { Store, Mail, Lock, Link, Clock } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -23,6 +23,9 @@ export default function RegisterPage() {
       type: formData.get('type') as string,
       ownerEmail: formData.get('ownerEmail') as string,
       password: formData.get('password') as string,
+      openTime: formData.get('openTime') as string,
+      closeTime: formData.get('closeTime') as string,
+      avgServiceMinutes: parseInt(formData.get('avgServiceMinutes') as string) || 15,
     };
 
     if (!data.name || !data.subdomain || !data.ownerEmail || !data.password) {
@@ -142,6 +145,46 @@ export default function RegisterPage() {
                 />
               </div>
             </div>
+            
+            <div className="border-t pt-4">
+              <label className="text-sm font-medium mb-2 block flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Business Hours
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Opens at</label>
+                  <Input 
+                    name="openTime"
+                    type="time"
+                    defaultValue="09:00"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Closes at</label>
+                  <Input 
+                    name="closeTime"
+                    type="time"
+                    defaultValue="18:00"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Avg. Service Time (minutes)</label>
+              <Input 
+                name="avgServiceMinutes"
+                type="number"
+                defaultValue="15"
+                min="1"
+                max="120"
+                required
+              />
+            </div>
+            
             <Button 
               type="submit"
               className="w-full bg-orange-500 hover:bg-orange-600"

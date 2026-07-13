@@ -11,6 +11,7 @@ import {
   Play, 
   Clock, 
   Mail,
+  Phone,
   AlertCircle,
   RefreshCw,
   LogIn,
@@ -49,7 +50,7 @@ export default function DashboardPage() {
   const [tenant, setTenant] = useState<any>(null);
   const [queue, setQueue] = useState<any[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('active');
 
   useEffect(() => {
     const stored = localStorage.getItem('pratiksha_admin');
@@ -106,15 +107,25 @@ export default function DashboardPage() {
     setActionLoading(null);
   };
 
-  const filteredQueue = filter === 'all' 
-    ? queue 
-    : queue.filter(e => e.status === filter);
+  const filteredQueue = (() => {
+    switch (filter) {
+      case 'active':
+        return queue.filter(e => e.status !== 'served' && e.status !== 'cancelled');
+      case 'served':
+        return queue.filter(e => e.status === 'served');
+      case 'cancelled':
+        return queue.filter(e => e.status === 'cancelled');
+      default:
+        return queue.filter(e => e.status === filter);
+    }
+  })();
 
   const stats = {
     waiting: queue.filter(e => e.status === 'waiting').length,
     checkedin: queue.filter(e => e.status === 'checkedin').length,
     serving: queue.filter(e => e.status === 'serving').length,
     served: queue.filter(e => e.status === 'served').length,
+    cancelled: queue.filter(e => e.status === 'cancelled').length,
     total: queue.length,
   };
 
@@ -163,14 +174,14 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-gray-500">Total Today</p>
-            <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+            <p className="text-xs text-gray-500">Cancelled</p>
+            <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        {['all', 'waiting', 'checkedin', 'serving', 'served', 'cancelled'].map((s) => (
+        {['active', 'waiting', 'checkedin', 'serving', 'served', 'cancelled'].map((s) => (
           <Button
             key={s}
             variant={filter === s ? 'default' : 'outline'}
@@ -178,7 +189,7 @@ export default function DashboardPage() {
             onClick={() => setFilter(s)}
             className={filter === s ? 'bg-gray-800' : ''}
           >
-            {s === 'all' ? 'All' : STATUS_LABELS[s]}
+            {s === 'active' ? 'Active' : STATUS_LABELS[s]}
           </Button>
         ))}
         <Button variant="ghost" size="sm" onClick={fetchQueue}>
@@ -208,8 +219,11 @@ export default function DashboardPage() {
                       <div>
                         <p className="font-semibold">{entry.name}</p>
                         <p className="text-sm text-gray-500">{entry.email}</p>
-                        {entry.service && entry.service !== 'General' && (
-                          <Badge variant="outline" className="text-xs mt-1">{entry.service}</Badge>
+                        {entry.phone && (
+                          <p className="text-sm text-gray-500 flex items-center gap-1">
+                            <Phone className="w-3 h-3" />
+                            {entry.phone}
+                          </p>
                         )}
                       </div>
                     </div>

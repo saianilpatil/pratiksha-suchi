@@ -7,20 +7,23 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast, Toaster } from 'react-hot-toast';
-import { Clock, Users, Mail, CheckCircle, MapPin } from 'lucide-react';
+import { Clock, Users, Mail, CheckCircle, MapPin, Phone, AlertTriangle } from 'lucide-react';
 
 interface QueueEntry {
   id: string;
   position: number;
   name: string;
   email: string;
-  service: string;
+  phone: string;
   status: string;
 }
 
 interface TenantData {
   name: string;
   type: string;
+  openTime: string;
+  closeTime: string;
+  avgServiceMinutes: number;
 }
 
 function PageContent() {
@@ -29,10 +32,13 @@ function PageContent() {
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [myEntry, setMyEntry] = useState<QueueEntry | null>(null);
   const [loading, setLoading] = useState(false);
   const [tenant, setTenant] = useState<TenantData | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
+  const [waitTime, setWaitTime] = useState(0);
 
   useEffect(() => {
     if (!tenantParam) return;
@@ -44,6 +50,8 @@ function PageContent() {
           const data = await res.json();
           setQueue(data.entries || []);
           setTenant(data.tenant);
+          setIsOpen(data.isOpen);
+          setWaitTime(data.approxWaitTime || 0);
         }
       } catch (e) {
         console.error('Fetch error:', e);
@@ -57,7 +65,12 @@ function PageContent() {
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email) return;
+    if (!name || !email || !phone) return;
+    
+    if (!isOpen) {
+      toast.error('Business is currently closed. Please come back during operating hours.');
+      return;
+    }
     
     setLoading(true);
     const toastId = toast.loading('Joining queue...');
@@ -66,7 +79,7 @@ function PageContent() {
       const res = await fetch('/api/queue/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, tenant: tenantParam })
+        body: JSON.stringify({ name, email, phone, tenant: tenantParam })
       });
       
       const data = await res.json();
@@ -76,9 +89,11 @@ function PageContent() {
         setMyEntry(data.entry);
         setName('');
         setEmail('');
+        setPhone('');
         const statusRes = await fetch(`/api/queue/status?tenant=${tenantParam}`);
         const statusData = await statusRes.json();
         setQueue(statusData.entries || []);
+        setWaitTime(statusData.approxWaitTime || 0);
       } else {
         toast.error(data.error || 'Something went wrong', { id: toastId });
       }
@@ -101,6 +116,13 @@ function PageContent() {
     }
   };
 
+  const formatWaitTime = (minutes: number) => {
+    if (minutes < 60) return `${minutes} mins`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  };
+
   if (!tenantParam) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -117,7 +139,7 @@ function PageContent() {
             </div>
             <div className="bg-white p-6 rounded-xl shadow-sm border">
               <Mail className="w-8 h-8 text-orange-500 mx-auto mb-3" />
-              <h3 className="font-semibold">Email Notifications</h3>
+              <h3 className="font-semibold">Email & SMS Notifications</h3>
               <p className="text-sm text-gray-500 mt-1">Customers know their position</p>
             </div>
             <div className="bg-white p-6 rounded-xl shadow-sm border">
@@ -155,6 +177,41 @@ function PageContent() {
       <main className="max-w-2xl mx-auto px-4 py-8">
         <Toaster position="top-center" />
         
+        <Card className="mb-4">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-orange-500" />
+                <div>
+                  <p className="font-medium text-sm">
+                    Open: {tenant?.openTime || '09:00'} - {tenant?.closeTime || '18:00'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Est. wait: <span className="font-bold text-orange-600">{formatWaitTime(waitTime)}</span>
+                  </p>
+                </div>
+              </div>
+              <Badge className={isOpen ? 'bg-green-500' : 'bg-red-500'}>
+                {isOpen ? 'Open Now' : 'Closed'}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        {!isOpen && (
+          <Card className="mb-6 border-red-300 bg-red-50">
+            <CardContent className="pt-4 flex items-center gap-3">
+              <AlertTriangle className="w-6 h-6 text-red-500" />
+              <div>
+                <p className="font-medium text-red-800">Business is currently closed</p>
+                <p className="text-sm text-red-600">
+                  Please come back between {tenant?.openTime} and {tenant?.closeTime}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -191,9 +248,6 @@ function PageContent() {
                       </span>
                       <div>
                         <span className="font-medium">{entry.name}</span>
-                        {entry.service && entry.service !== 'General' && (
-                          <span className="text-sm text-gray-500 ml-2">({entry.service})</span>
-                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -233,12 +287,26 @@ function PageContent() {
                     required 
                   />
                 </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Phone Number</label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+                    <Input 
+                      type="tel"
+                      value={phone} 
+                      onChange={(e) => setPhone(e.target.value)} 
+                      placeholder="+91 98765 43210" 
+                      className="pl-10"
+                      required 
+                    />
+                  </div>
+                </div>
                 <Button 
                   type="submit" 
                   className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                  disabled={loading}
+                  disabled={loading || !isOpen}
                 >
-                  {loading ? 'Joining...' : 'Join Queue'}
+                  {loading ? 'Joining...' : isOpen ? 'Join Queue' : 'Business Closed'}
                 </Button>
               </form>
             </CardContent>
@@ -257,7 +325,10 @@ function PageContent() {
               </div>
               <p className="text-gray-600 text-lg">Your position in queue</p>
               <p className="text-sm text-gray-500 mt-2">
-                We will email you at <strong>{myEntry.email}</strong> when it is your turn.
+                Est. wait: <strong>{formatWaitTime(waitTime)}</strong>
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                We will notify you at <strong>{myEntry.email}</strong> & <strong>{myEntry.phone}</strong>
               </p>
               <div className="mt-4 p-3 bg-green-50 rounded-lg">
                 <p className="text-sm text-green-700">

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getTenantBySubdomain, getActiveQueueForTenant } from '@/lib/sheets';
+import { getTenantBySubdomain, getActiveQueueForTenant, isBusinessOpen, getApproxWaitTime } from '@/lib/sheets';
 
 export async function GET(request: Request) {
   try {
@@ -22,8 +22,16 @@ export async function GET(request: Request) {
     }
 
     const entries = await getActiveQueueForTenant(tenant.id);
+    const open = isBusinessOpen(tenant);
+    const waitTime = getApproxWaitTime(tenant, entries.length);
 
-    return NextResponse.json({ success: true, entries, tenant });
+    return NextResponse.json({ 
+      success: true, 
+      entries, 
+      tenant,
+      isOpen: open,
+      approxWaitTime: waitTime,
+    });
   } catch (error) {
     console.error('Status error:', error);
     return NextResponse.json(

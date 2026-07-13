@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getTenantBySubdomain, addToQueue, getActiveQueueForTenant } from '@/lib/sheets';
+import { getTenantBySubdomain, addToQueue, getActiveQueueForTenant, isBusinessOpen } from '@/lib/sheets';
 import { sendEmail, getStatusEmailTemplate } from '@/lib/email';
 import { markEmailSent } from '@/lib/sheets';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, service, tenant: subdomain } = body;
+    const { name, email, phone, tenant: subdomain } = body;
 
-    if (!name || !email || !subdomain) {
+    if (!name || !email || !phone || !subdomain) {
       return NextResponse.json(
-        { error: 'Name, email, and tenant are required' },
+        { error: 'Name, email, phone, and tenant are required' },
         { status: 400 }
       );
     }
@@ -23,6 +23,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const open = isBusinessOpen(tenant);
+    if (!open) {
+      return NextResponse.json(
+        { error: 'Business is currently closed' },
+        { status: 403 }
+      );
+    }
+
     const queue = await getActiveQueueForTenant(tenant.id);
     const position = queue.filter(e => e.status === 'waiting').length + 1;
 
@@ -30,7 +38,8 @@ export async function POST(request: Request) {
       tenantId: tenant.id,
       name,
       email,
-      service: service || 'General',
+      phone,
+      service: 'General',
       position,
     });
 

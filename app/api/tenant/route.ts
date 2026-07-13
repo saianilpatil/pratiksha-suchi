@@ -18,7 +18,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { subdomain, name, type, ownerEmail, password } = body;
+    const { subdomain, name, type, ownerEmail, password, openTime, closeTime, avgServiceMinutes } = body;
 
     if (!subdomain || !name || !ownerEmail || !password) {
       return NextResponse.json(
@@ -41,6 +41,9 @@ export async function POST(request: Request) {
       type: type || 'general',
       ownerEmail,
       password,
+      openTime,
+      closeTime,
+      avgServiceMinutes,
     });
 
     const { password: _, ...safeTenant } = tenant;
